@@ -1,83 +1,92 @@
 import React from 'react';
-import { Web3Status, getLevelInfo } from '../types';
-import { web3Service } from '../services/web3Service';
+import { Web3Status, WalletStats } from '../types';
 
 interface NavbarProps {
   account: string | null;
   status: Web3Status;
   onConnect: () => void;
-  onCreateClick: () => void;
-  isDarkMode: boolean;
   toggleTheme: () => void;
+  isDarkMode: boolean;
+  stats: WalletStats | null;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({ account, status, onConnect, onCreateClick, isDarkMode, toggleTheme }) => {
-  const formatAddress = (addr: string) => `${addr.slice(0, 6)}...${addr.slice(-4)}`;
-  
-  // Get User Level Info
-  const betCount = web3Service.getUserBetCount();
-  const level = getLevelInfo(betCount);
+const formatAddress = (addr: string) => `${addr.slice(0, 6)}...${addr.slice(-4)}`;
 
+export const Navbar: React.FC<NavbarProps> = ({
+  account,
+  status,
+  onConnect,
+  toggleTheme,
+  isDarkMode,
+  stats,
+}) => {
   return (
-    <nav className="sticky top-0 z-50 w-full bg-white/90 dark:bg-gray-900/90 backdrop-blur-md border-b border-gray-100 dark:border-gray-800 transition-colors duration-200">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
-          {/* Logo */}
-          <div className="flex items-center gap-2 cursor-pointer" onClick={() => window.location.reload()}>
-            <div className="w-8 h-8 bg-celo-green rounded-full flex items-center justify-center text-white font-bold text-lg">
-              C
+    <nav className="sticky top-0 z-50 w-full bg-white/80 dark:bg-black/70 backdrop-blur-lg border-b border-white/20 dark:border-gray-800">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between h-16">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-celo-green to-celo-gold text-white font-black flex items-center justify-center">
+              SS
             </div>
-            <span className="font-bold text-xl text-celo-dark dark:text-white tracking-tight">CeloPulse</span>
+            <div>
+              <p className="font-semibold text-gray-900 dark:text-white leading-none">SkySprint</p>
+              <span className="text-xs uppercase tracking-[0.25em] text-gray-400">
+                Play-to-Earn on Celo
+              </span>
+            </div>
           </div>
 
-          {/* Actions */}
-          <div className="flex items-center gap-4">
-             {/* User Level Badge (Only if connected) */}
-             {status === 'connected' && (
-                <div className={`hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full border ${level.bg} ${level.border}`}>
-                   <span className="text-base">{level.icon}</span>
-                   <div className="flex flex-col leading-none">
-                     <span className={`text-xs font-bold ${level.color} uppercase tracking-wider`}>{level.title}</span>
-                     <span className="text-[10px] text-gray-500 dark:text-gray-400">{betCount} Bets Placed</span>
-                   </div>
+          <div className="flex items-center gap-3">
+            {stats && (
+              <div className="hidden sm:flex items-center gap-3 px-3 py-1.5 rounded-full border border-gray-200 dark:border-gray-700 bg-white/70 dark:bg-gray-900/60">
+                <span className="text-amber-500 text-lg">⚡</span>
+                <div className="leading-tight">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                    XP {stats.xp}
+                  </p>
+                  <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                    {stats.currentTier}
+                  </p>
                 </div>
-             )}
+              </div>
+            )}
 
-             {/* Theme Toggle */}
-             <button
+            <button
               onClick={toggleTheme}
-              className="p-2 rounded-full text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 transition-colors"
+              className="p-2 rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-200"
               aria-label="Toggle Dark Mode"
             >
               {isDarkMode ? (
-                 // Sun Icon
-                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <circle cx="12" cy="12" r="5" />
+                  <line x1="12" y1="1" x2="12" y2="3" />
+                  <line x1="12" y1="21" x2="12" y2="23" />
+                  <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+                  <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+                  <line x1="1" y1="12" x2="3" y2="12" />
+                  <line x1="21" y1="12" x2="23" y2="12" />
+                </svg>
               ) : (
-                 // Moon Icon
-                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+                </svg>
               )}
-            </button>
-
-            <button 
-              onClick={onCreateClick}
-              className="hidden md:flex items-center gap-2 text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-celo-green dark:hover:text-celo-green transition-colors"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-              Create Market
             </button>
 
             <button
               onClick={onConnect}
               disabled={status === 'connecting' || status === 'connected'}
-              className={`
-                px-5 py-2 rounded-full font-semibold text-sm transition-all shadow-sm
-                ${status === 'connected' 
-                  ? 'bg-celo-light text-celo-green border border-celo-green/20 dark:bg-gray-800 dark:border-gray-700' 
-                  : 'bg-celo-green text-white hover:bg-green-600 hover:shadow-md'}
-              `}
+              className={`px-5 py-2 rounded-full text-sm font-semibold transition-all ${
+                status === 'connected'
+                  ? 'bg-celo-light text-celo-dark border border-celo-green/30'
+                  : 'bg-gradient-to-r from-celo-green to-celo-gold text-white shadow-lg shadow-celo-green/40'
+              }`}
             >
-              {status === 'connecting' ? 'Connecting...' : 
-               status === 'connected' && account ? formatAddress(account) : 'Connect Wallet'}
+              {status === 'connecting'
+                ? 'Connecting...'
+                : status === 'connected' && account
+                ? formatAddress(account)
+                : 'Connect Wallet'}
             </button>
           </div>
         </div>

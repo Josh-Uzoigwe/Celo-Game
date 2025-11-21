@@ -1,162 +1,168 @@
-import { Market, MarketCategory } from '../types';
-import { PREDICTION_MARKET_ADDRESS, MARKET_ABI } from '../constants';
+import { Boost, LeaderboardEntry, RoundInfo, WalletStats, getTierFromXp } from '../types';
+import { DEFAULT_REWARD_TIERS, PLAY2EARN_GAME_ADDRESS } from '../constants';
 
-// --- MOCK DATA STORE ---
-let mockMarkets: Market[] = [
+const mockRounds: RoundInfo[] = [
   {
-    id: 0,
-    creator: '0x123...mock',
-    title: 'Bitcoin Price > $100k by Dec 31st?',
-    description: 'Will Bitcoin close above $100,000 USD on any major exchange on December 31st, 2025?',
-    category: MarketCategory.CRYPTO,
-    imageUrl: 'https://images.unsplash.com/photo-1621416894569-0f39ed31d247?q=80&w=800&auto=format&fit=crop', // High quality Bitcoin 3D render
-    outcomes: ['Yes', 'No'],
-    outcomePools: ['50000000000000000000', '15000000000000000000'], // ~50 CELO, ~15 CELO (Wei)
-    totalPool: '65000000000000000000',
-    lockTime: Date.now() / 1000 + 86400 * 2, // 2 days from now
-    resolveTime: Date.now() / 1000 + 86400 * 3,
-    resolved: false,
-    winningOutcome: null
+    id: 101,
+    title: 'Solar Surge',
+    description: 'Collect as many energy orbs as possible before the clock hits zero.',
+    status: 'live',
+    startTime: Date.now() / 1000 - 20,
+    endTime: Date.now() / 1000 + 45,
+    entryFeeCelo: 0.5,
+    prizePoolCelo: 125.4,
+    players: 182,
+    minPlayers: 120,
+    jackpotBoost: 12,
+    topScore: 42100,
   },
   {
-    id: 1,
-    creator: '0xabc...mock',
-    title: 'Real Madrid vs. Barcelona',
-    description: 'Who will win the El Clásico match this weekend?',
-    category: MarketCategory.SPORTS,
-    imageUrl: 'https://images.unsplash.com/photo-1579952363873-27f3bade9f55?q=80&w=800&auto=format&fit=crop', // Soccer stadium at night
-    outcomes: ['Real Madrid', 'Barcelona', 'Draw'],
-    outcomePools: ['20000000000000000000', '22000000000000000000', '5000000000000000000'], // ~20, ~22, ~5
-    totalPool: '47000000000000000000',
-    lockTime: Date.now() / 1000 + 3600, // 1 hour from now
-    resolveTime: Date.now() / 1000 + 7200,
-    resolved: false,
-    winningOutcome: null
+    id: 102,
+    title: 'Lunar Rush',
+    description: 'Obstacle gauntlet with speed boosts every 5 seconds.',
+    status: 'lobby',
+    startTime: Date.now() / 1000 + 3600,
+    endTime: Date.now() / 1000 + 3660,
+    entryFeeCelo: 0.75,
+    prizePoolCelo: 98.1,
+    players: 42,
+    minPlayers: 80,
+    jackpotBoost: 15,
   },
   {
-    id: 2,
-    creator: '0xMe',
-    title: 'Best Picture Oscar 2025',
-    description: 'Which movie will win Best Picture at the upcoming Academy Awards?',
-    category: MarketCategory.ENTERTAINMENT,
-    imageUrl: 'https://images.unsplash.com/photo-1485846234645-a62644f84728?q=80&w=800&auto=format&fit=crop', // Movie camera / cinema set
-    outcomes: ['Oppenheimer 2', 'Barbie 2', 'Other'],
-    outcomePools: ['10000000000000000000', '5000000000000000000', '2000000000000000000'],
-    totalPool: '17000000000000000000',
-    lockTime: Date.now() / 1000 - 1000, // Locked
-    resolveTime: Date.now() / 1000 - 500, // Resolved time passed
-    resolved: true,
-    winningOutcome: 0
-  }
+    id: 103,
+    title: 'Nebula Clash',
+    description: 'Special tournament round with badge drops.',
+    status: 'settled',
+    startTime: Date.now() / 1000 - 7200,
+    endTime: Date.now() / 1000 - 7140,
+    entryFeeCelo: 1,
+    prizePoolCelo: 250.8,
+    players: 210,
+    minPlayers: 150,
+    jackpotBoost: 10,
+    topScore: 51200,
+  },
 ];
 
-// --- SERVICE ---
+const mockLeaderboard: Record<number, LeaderboardEntry[]> = {
+  101: [
+    { rank: 1, player: '0xDd3...91B2', score: 42100, streak: 5, xp: 2400 },
+    { rank: 2, player: '0x8cA...34e1', score: 39210, streak: 4, xp: 1800 },
+    { rank: 3, player: '0x4b1...77a0', score: 36100, streak: 3, xp: 1400 },
+    { rank: 4, player: '0xFe2...0d18', score: 33420, streak: 2, xp: 900 },
+    { rank: 5, player: '0x1Ff...9341', score: 33010, streak: 1, xp: 760 },
+    { rank: 6, player: '0x3b4...1a54', score: 32800, streak: 1, xp: 620 },
+    { rank: 7, player: '0xaAa...aa11', score: 32550, streak: 1, xp: 590 },
+    { rank: 8, player: '0xBbB...bb22', score: 32000, streak: 0, xp: 540 },
+    { rank: 9, player: '0xCcC...cc33', score: 31050, streak: 0, xp: 500 },
+    { rank: 10, player: '0xDdD...dd44', score: 30110, streak: 0, xp: 470 },
+  ],
+};
+
+const baseBoosts: Boost[] = [
+  { id: 'trail', title: 'Solar Trail', description: 'Leaves a neon streak behind your runner.', costXp: 150, unlocked: false },
+  { id: 'shield', title: 'Pulse Shield', description: 'Ignore the first decoy orb each run.', costXp: 400, unlocked: false },
+  { id: 'scanner', title: 'Orb Scanner', description: 'Highlights +5% more high-value orbs.', costXp: 750, unlocked: false },
+];
 
 class Web3Service {
   private isMock: boolean;
   private walletAddress: string | null = null;
+  private walletStats: WalletStats | null = null;
 
   constructor() {
-    // If no address is configured, use mock mode for UI demonstration
-    this.isMock = !PREDICTION_MARKET_ADDRESS;
+    this.isMock = !PLAY2EARN_GAME_ADDRESS;
   }
 
   async connectWallet(): Promise<string> {
     if (typeof window !== 'undefined' && (window as any).ethereum) {
-      try {
-        const accounts = await (window as any).ethereum.request({ method: 'eth_requestAccounts' });
-        this.walletAddress = accounts[0];
-        return accounts[0];
-      } catch (e) {
-        console.error("User denied connection", e);
-        throw e;
-      }
-    } else {
-      // Mock login
-      this.walletAddress = "0xMockUser" + Math.floor(Math.random() * 1000);
-      return this.walletAddress;
+      const accounts = await (window as any).ethereum.request({ method: 'eth_requestAccounts' });
+      this.walletAddress = accounts[0];
+      return accounts[0];
     }
+    this.walletAddress = `0xMockUser${Math.floor(Math.random() * 9999)}`;
+    return this.walletAddress;
   }
 
-  async getMarkets(): Promise<Market[]> {
+  async getRounds(): Promise<RoundInfo[]> {
     if (this.isMock) {
-      await new Promise(r => setTimeout(r, 800)); // Simulate network latency
-      return [...mockMarkets];
+      await new Promise((r) => setTimeout(r, 350));
+      return [...mockRounds];
     }
-    // Implement actual contract read here using ethers/viem
     return [];
   }
 
-  async createMarket(market: Partial<Market>): Promise<boolean> {
+  async getLeaderboard(roundId: number): Promise<LeaderboardEntry[]> {
     if (this.isMock) {
-      await new Promise(r => setTimeout(r, 1500));
-      const newId = mockMarkets.length;
-      mockMarkets.unshift({
-        ...market,
-        id: newId,
-        creator: this.walletAddress || '0xAnon',
-        outcomePools: market.outcomes!.map(() => '0'),
-        totalPool: '0',
-        resolved: false,
-        winningOutcome: null,
-        category: market.category || MarketCategory.OTHER
-      } as Market);
-      return true;
+      await new Promise((r) => setTimeout(r, 250));
+      return mockLeaderboard[roundId] || [];
     }
-    return false;
+    return [];
   }
 
-  async placeBet(marketId: number, outcomeIndex: number, amountEth: string): Promise<boolean> {
+  async getWalletStats(): Promise<WalletStats> {
+    if (this.walletStats) return this.walletStats;
+    const xpFromStorage =
+      typeof window !== 'undefined' ? parseInt(localStorage.getItem('skysprint_xp') || '120', 10) : 120;
+    const stats: WalletStats = {
+      xp: xpFromStorage,
+      streak: 2,
+      badges: ['Beta Pilot', 'Glitchless Run'],
+      currentTier: getTierFromXp(xpFromStorage),
+    };
+    this.walletStats = stats;
+    return stats;
+  }
+
+  async getBoosts(): Promise<Boost[]> {
+    const stats = await this.getWalletStats();
+    return baseBoosts.map((boost) => ({
+      ...boost,
+      unlocked: stats.xp >= boost.costXp,
+    }));
+  }
+
+  async joinRound(roundId: number): Promise<{ prizePool: number; players: number }> {
     if (this.isMock) {
-      await new Promise(r => setTimeout(r, 1000));
-      const market = mockMarkets.find(m => m.id === marketId);
-      if (market) {
-        const amountWei = parseFloat(amountEth) * 1e18; // rough conversion for mock
-        const currentPool = BigInt(market.outcomePools[outcomeIndex]);
-        const total = BigInt(market.totalPool);
-        
-        market.outcomePools[outcomeIndex] = (currentPool + BigInt(Math.floor(amountWei))).toString();
-        market.totalPool = (total + BigInt(Math.floor(amountWei))).toString();
-        
-        // Increment XP (Stored in local storage for mock persistence)
-        this.incrementUserBetCount();
-      }
-      return true;
+      const round = mockRounds.find((r) => r.id === roundId);
+      if (!round) throw new Error('Round not found');
+      round.players += 1;
+      round.prizePoolCelo += round.entryFeeCelo * 0.85;
+      await new Promise((r) => setTimeout(r, 400));
+      return { prizePool: round.prizePoolCelo, players: round.players };
     }
-    return false;
+    return { prizePool: 0, players: 0 };
   }
 
-  async resolveMarket(marketId: number, outcomeIndex: number): Promise<boolean> {
-    if (this.isMock) {
-      await new Promise(r => setTimeout(r, 1000));
-      const market = mockMarkets.find(m => m.id === marketId);
-      if (market) {
-        market.resolved = true;
-        market.winningOutcome = outcomeIndex;
-      }
-      return true;
-    }
-    return false;
+  async submitMockScore(roundId: number, deltaScore: number): Promise<LeaderboardEntry[]> {
+    if (!this.walletAddress) throw new Error('Connect wallet first');
+    const entries = mockLeaderboard[roundId] || [];
+    const newScore = 30000 + deltaScore;
+    const me: LeaderboardEntry = {
+      rank: entries.length + 1,
+      player: this.walletAddress,
+      score: newScore,
+      streak: 1,
+      xp: (await this.getWalletStats()).xp + 50,
+    };
+    const updated = [...entries, me]
+      .sort((a, b) => b.score - a.score)
+      .map((entry, idx) => ({
+        ...entry,
+        rank: idx + 1,
+      }));
+    mockLeaderboard[roundId] = updated.slice(0, 10);
+    return mockLeaderboard[roundId];
   }
 
-  async claimWinnings(marketId: number): Promise<boolean> {
-    if (this.isMock) {
-        await new Promise(r => setTimeout(r, 1000));
-        alert("Winnings claimed (Mock transaction)!");
-        return true;
-    }
-    return false;
+  async claimRewards(): Promise<boolean> {
+    await new Promise((r) => setTimeout(r, 600));
+    return true;
   }
 
-  // --- XP / LEVEL SYSTEM ---
-  getUserBetCount(): number {
-    if (typeof window === 'undefined') return 0;
-    return parseInt(localStorage.getItem('celoPulse_betCount') || '0');
-  }
-
-  private incrementUserBetCount() {
-    const current = this.getUserBetCount();
-    localStorage.setItem('celoPulse_betCount', (current + 1).toString());
+  getRewardSchedule() {
+    return DEFAULT_REWARD_TIERS;
   }
 }
 
